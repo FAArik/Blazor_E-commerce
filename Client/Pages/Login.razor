@@ -1,0 +1,64 @@
+﻿@page "/login"
+@using Microsoft.AspNetCore.WebUtilities;
+@inject IAuthService authService
+@inject ILocalStorageService localStroage
+@inject NavigationManager navigationManager
+@inject AuthenticationStateProvider authenticationStateProvider
+@inject ICartService cartService
+
+<PageTitle>Login</PageTitle>
+
+<EditForm Model="user" OnValidSubmit="HandleLogin">
+    <DataAnnotationsValidator />
+    <div class="mb-3">
+        <label for="email">Email</label>
+        <InputText id="email" @bind-Value="user.Email" class="form-control"></InputText>
+        <ValidationMessage For="@(()=> user.Email)" />
+    </div>
+    <div class="mb-3">
+        <label for="password">Password</label>
+        <InputText id="password" @bind-Value="user.Password" class="form-control" type="password"></InputText>
+        <ValidationMessage For="@(()=> user.Password)" />
+    </div>   
+    <button type="submit" class="btn btn-primary">Login</button>
+   
+</EditForm>
+<div class="text-danger">
+    <span>
+        @errorMessage
+    </span>
+</div>
+
+@code {
+    private UserLogin user = new UserLogin();
+    private string errorMessage=string.Empty;
+    private string returnUrl = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        var uri = navigationManager.ToAbsoluteUri(navigationManager.Uri);
+        if (QueryHelpers.ParseQuery(uri.Query).TryGetValue("returnUrl",out var url))
+        {
+            returnUrl = url;
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        var result = await authService.Login(user);
+        if (result.Success)
+        {
+            errorMessage = string.Empty;
+            await localStroage.SetItemAsync("authToken", result.Data);
+            await authenticationStateProvider.GetAuthenticationStateAsync();
+            await cartService.StoreCartItems(true);
+            await cartService.GetCartItemsCount();
+            navigationManager.NavigateTo(returnUrl);
+        }
+        else
+        {
+            errorMessage=result.Message;
+        }
+    }
+
+}
